@@ -1,7 +1,10 @@
 package com.sky.unionpay.dto;
 
+import lombok.Data;
+
 import java.io.Serializable;
 
+@Data
 public class CreateOrderRequestDto implements Serializable {
 
     private String businessId;

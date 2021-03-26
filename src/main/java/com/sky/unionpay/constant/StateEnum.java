@@ -1,6 +1,6 @@
 package com.sky.unionpay.constant;
 
-public enum CommonStateEnum {
+public enum StateEnum {
 
     ENABLE(1, "启用"),
     DISABLE(-1, "禁用");
@@ -10,7 +10,7 @@ public enum CommonStateEnum {
 
     private String stateName;
 
-    private CommonStateEnum(Integer state, String stateName) {
+    private StateEnum(Integer state, String stateName) {
         this.state = state;
         this.stateName = stateName;
     }
