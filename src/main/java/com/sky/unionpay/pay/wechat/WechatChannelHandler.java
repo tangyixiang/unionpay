@@ -1,6 +1,6 @@
 package com.sky.unionpay.pay.wechat;
 
-import com.sky.unionpay.annotation.PayChannel;
+import com.sky.unionpay.annotation.PaySource;
 import com.sky.unionpay.constant.PayChannels;
 import com.sky.unionpay.model.PayOrder;
 import com.sky.unionpay.model.PayResult;
@@ -8,7 +8,7 @@ import com.sky.unionpay.pay.ICloseOrder;
 import com.sky.unionpay.pay.IPayState;
 import com.sky.unionpay.pay.IRefund;
 
-@PayChannel(value = PayChannels.WECHAT)
+@PaySource(value = PayChannels.WECHAT)
 public class WechatChannelHandler implements IRefund, IPayState, ICloseOrder {
 
     @Override

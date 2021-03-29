@@ -5,6 +5,8 @@ import com.sky.unionpay.model.PayOrder;
 import com.sky.unionpay.service.PayService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
+import org.springframework.util.StringUtils;
+import org.springframework.validation.Validator;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,10 +22,24 @@ public class PayController {
 
     @PostMapping("/v1/pay")
     public PayOrder createOrder(@RequestBody CreateOrderRequestDto createOrderRequestDto) {
+        validateData(createOrderRequestDto);
 
-        payService.pay("JSAPI", null, null);
+
+        payService.pay(createOrderRequestDto);
         return null;
     }
 
+
+    private void validateData(CreateOrderRequestDto createOrderRequestDto) {
+        if (!StringUtils.hasText(createOrderRequestDto.getPayType())) {
+            throw new RuntimeException("支付类型不能为空");
+        }
+        if (!StringUtils.hasText(createOrderRequestDto.getMerchantId())) {
+            throw new RuntimeException("商户ID不能为空");
+        }
+        if (!StringUtils.hasText(createOrderRequestDto.getBusinessId())) {
+            throw new RuntimeException("业务系统订单号不能为空");
+        }
+    }
 
 }

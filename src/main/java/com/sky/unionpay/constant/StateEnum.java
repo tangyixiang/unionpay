@@ -6,17 +6,17 @@ public enum StateEnum {
     DISABLE(-1, "禁用");
 
 
-    private Integer state;
+    private Integer code;
 
     private String stateName;
 
-    private StateEnum(Integer state, String stateName) {
-        this.state = state;
+    private StateEnum(Integer code, String stateName) {
+        this.code = code;
         this.stateName = stateName;
     }
 
-    public Integer getState() {
-        return state;
+    public Integer getCode() {
+        return code;
     }
 
     public String getStateName() {

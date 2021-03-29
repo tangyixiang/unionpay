@@ -1,5 +1,6 @@
 package com.sky.unionpay.pay;
 
+import com.sky.unionpay.Exception.NoSuchPayChannelException;
 import com.sky.unionpay.model.PayOrder;
 import com.sky.unionpay.model.PayResult;
 import com.sky.unionpay.model.merchant.Merchant;
@@ -14,7 +15,7 @@ public interface IPay {
      * @param payOrder
      * @return
      */
-    boolean canPay(Merchant merchant, PayOrder payOrder);
+    IPay canPay(Merchant merchant, PayOrder payOrder) throws NoSuchPayChannelException;
 
     /**
      * 支付
