@@ -13,11 +13,11 @@ public class PayOrder {
 
     private String businessId;
 
-    private Long amount;
+    private long amount;
 
-    private Long refundAmount;
+    private long refundAmount;
 
-    private Integer type; //订单类型
+    private Integer type; //订单类型 1 支付订单  2 退款订单
 
     private Integer state;
 
@@ -25,9 +25,11 @@ public class PayOrder {
 
     private String payType;     //支付方式 JSAPI
 
-    private Integer noticeState;
+    private String noticeUrl;
 
-    private Integer noticeTime; //通知次数
+    private int noticeState;    // 0 未通知  1 通知成功  2 通知失败
+
+    private int noticeTime; //通知次数
 
     private LocalDateTime createTime;
 
