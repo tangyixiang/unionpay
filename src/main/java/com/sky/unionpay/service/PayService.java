@@ -1,22 +1,32 @@
 package com.sky.unionpay.service;
 
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import com.sky.unionpay.Exception.NotifyBusinessException;
 import com.sky.unionpay.annotation.PaySource;
 import com.sky.unionpay.constant.OrderTypes;
 import com.sky.unionpay.constant.PayStateEnum;
 import com.sky.unionpay.dto.CreateOrderRequestDto;
+import com.sky.unionpay.dto.NotifyPayResultRequestDto;
+import com.sky.unionpay.dto.NotifyPayResultResponseDto;
 import com.sky.unionpay.model.PayOrder;
+import com.sky.unionpay.model.PayRequestParam;
 import com.sky.unionpay.model.PayResult;
 import com.sky.unionpay.model.merchant.Merchant;
 
 import com.sky.unionpay.pay.IPay;
 import com.sky.unionpay.util.IDUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
+@Slf4j
 @Service
 public class PayService extends BaseService {
 
@@ -26,40 +36,63 @@ public class PayService extends BaseService {
     private PayOrderService payOrderService;
 
 
-    public void pay(CreateOrderRequestDto createOrderRequestDto) {
+    public PayResult pay(CreateOrderRequestDto createOrderRequestDto) {
         IPay payBean = getPayBean(createOrderRequestDto.getPayType());
-        Merchant merchant = merchantService.findById(createOrderRequestDto.getMerchantId());
-        //TODO 接口幂等 查询订单是否已经创建支付订单了,状态不是关闭的
-        Integer payChannel = getPayChannel(payBean);
+        Integer payChannel = payBean.getPayChannel(payBean);
+        Merchant merchant = merchantService.findEnableMerchant(createOrderRequestDto.getMerchantId());
 
+        //TODO 接口幂等 查询订单是否已经创建支付订单了,状态不是关闭的
+
+
+        PayRequestParam payRequestParam = new PayRequestParam(createOrderRequestDto.getOpenId(), createOrderRequestDto.getAuthCode());
         PayOrder payOrder = buildPayOrder(createOrderRequestDto, payChannel);
         payBean.canPay(merchant, payOrder);
 
-        PayResult payResult = payBean.pay(merchant, payOrder);
+        PayResult payResult = payBean.pay(payRequestParam, merchant, payOrder);
         int state = payResult.getState();
-        if (state == PayStateEnum.PAYED.getState()) {
-            payOrder.setState(PayStateEnum.PAYED.getState());
+        if (state == PayStateEnum.PAYED.getCode()) {
+            payOrder.setState(PayStateEnum.PAYED.getCode());
             notifyBusinessSys(payOrder);
-        } else if (state == PayStateEnum.PAYING.getState()) {
-            payOrder.setState(PayStateEnum.PAYING.getState());
-        } else if (state == PayStateEnum.PAY_FAIL.getState()) {
-            payOrder.setState(PayStateEnum.PAY_FAIL.getState());
+        } else if (state == PayStateEnum.PAYING.getCode()) {
+            payOrder.setState(PayStateEnum.PAYING.getCode());
+        } else if (state == PayStateEnum.PAY_FAIL.getCode()) {
+            payOrder.setState(PayStateEnum.PAY_FAIL.getCode());
             notifyBusinessSys(payOrder);
         }
         payOrderService.saveOrUpdate(payOrder);
-
+        return payResult;
     }
 
     // 通知业务系统
     @Async
+    @Retryable(value = NotifyBusinessException.class, backoff = @Backoff(delay = 2000L, multiplier = 1.5))
     private void notifyBusinessSys(PayOrder payOrder) {
         String noticeUrl = payOrder.getNoticeUrl();
+        NotifyPayResultRequestDto notifyPayResultRequestDto = new NotifyPayResultRequestDto();
+        notifyPayResultRequestDto.setBusinessId(payOrder.getBusinessId());
+        notifyPayResultRequestDto.setPayId(payOrder.getId());
+        notifyPayResultRequestDto.setPayType(payOrder.getPayType());
+        notifyPayResultRequestDto.setState(payOrder.getState());
+        //TODO 对数据进行签名
+        notifyPayResultRequestDto.setSign("123");
+        boolean notifySuccess = false;
+        String notifyResult = HttpUtil.post(noticeUrl, JSONUtil.toJsonStr(notifyPayResultRequestDto));
+        NotifyPayResultResponseDto notifyPayResultResponseDto = JSONUtil.toBean(notifyResult, NotifyPayResultResponseDto.class);
+        if (notifyPayResultResponseDto.getSuccess() == 1) {
+            notifySuccess = true;
+        }
+        int noticeState = notifySuccess ? 1 : 2;
+        payOrder.setNoticeState(noticeState);
+        payOrder.setNoticeTime(payOrder.getNoticeTime() + 1);
+        payOrder.setUpdateTime(LocalDateTime.now());
+        payOrder.setLastNoticeTime(LocalDateTime.now());
+        payOrderService.saveOrUpdate(payOrder);
 
-    }
+        if (!notifySuccess) {
+            log.error("业务系统通知失败,支付订单ID:{},业务订单ID:{}", payOrder.getId(), payOrder.getBusinessId());
+            throw new NotifyBusinessException("业务系统通知失败");
+        }
 
-    private Integer getPayChannel(IPay payBean) {
-        PaySource paySource = payBean.getClass().getAnnotation(PaySource.class);
-        return paySource.value();
     }
 
     private PayOrder buildPayOrder(CreateOrderRequestDto createOrderRequestDto, Integer payChannel) {
@@ -71,7 +104,7 @@ public class PayService extends BaseService {
         payOrder.setBusinessId(createOrderRequestDto.getBusinessId());
         payOrder.setPayType(createOrderRequestDto.getPayType());
         payOrder.setPayChannel(payChannel);
-        payOrder.setState(PayStateEnum.PAYING.getState());
+        payOrder.setState(PayStateEnum.PAYING.getCode());
         payOrder.setType(OrderTypes.payOrder);
         payOrder.setNoticeUrl(createOrderRequestDto.getResultNoticeUrl());
         payOrder.setCreateTime(LocalDateTime.now());

@@ -8,17 +8,16 @@ public enum PayStateEnum {
     PAY_FAIL(-1, "支付失败");
 
 
-    private Integer state;
-
+    private Integer code;
     private String stateName;
 
     private PayStateEnum(Integer state, String stateName) {
-        this.state = state;
+        this.code = state;
         this.stateName = stateName;
     }
 
-    public Integer getState() {
-        return state;
+    public Integer getCode() {
+        return code;
     }
 
     public String getStateName() {
